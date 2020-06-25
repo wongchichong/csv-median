@@ -31,7 +31,7 @@ if (fs.existsSync(out)) {
 }
 
 let inputStream = fs.createReadStream(file, 'utf8');
-let map = new Map<string, Map<string, number[]>>();
+let map = new Map<string, Map<string, Map<string, number[]>>>();
 
 let spinner = ora({ text: 'Loading ' + file, spinner: 'dots', hideCursor: true }).start();
 
@@ -46,13 +46,17 @@ inputStream
         //console.log('A row arrived: ', row);
         //Format
         //['CHART_UPI', 'CATP_DESC', 'PPSF', 'PPP_TMNPC', 'YEAR', 'UTP', 'X', 'Y']
-        let [upi, desc, ppsf, tmnpc, year] = row as [string, string, number, string, string]
-        if (!map.has(year)) map.set(year, new Map<string, number[]>())
+        let [upi, desc, ppsf, tmn, year] = row as [string, string, number, string, string]
+        if (!map.has(year)) map.set(year, new Map<string, Map<string, number[]>>())
 
         let m = map.get(year);
-        if (!m.has(desc)) m.set(desc, [])
+        if (!m.has(desc)) m.set(desc, new Map())
 
-        let a = m.get(desc)
+        let t = m.get(desc)
+
+        if (!t.has(tmn)) t.set(tmn, [])
+
+        let a = t.get(tmn)
         a.push(ppsf)
     })
     .on('end', function (data) {
@@ -60,12 +64,15 @@ inputStream
         spinner.stop();
 
         let s = [] as string[];
+        s.push(`"year","desc","tmn",pfs,count`);
+
         [...map.keys()].forEach(y =>
-            [...map.get(y).keys()].forEach(d => {
-                let a = map.get(y).get(d).sort();
-                let m = a[Math.ceil(a.length / 2)]
-                s.push(`"${y}","${d}",${m}`)
-            }))
+            [...map.get(y).keys()].forEach(d =>
+                [...map.get(y).get(d).keys()].forEach(t => {
+                    let a = map.get(y).get(d).get(t).sort();
+                    let m = a.length === 1 ? a[0] : a[Math.ceil(a.length / 2)]
+                    s.push(`"${y}","${d}","${t}",${m},${a.length}`)
+                })))
 
         spinner = ora({ text: 'Writting ' + out, spinner: 'dots', hideCursor: true }).start();
 
